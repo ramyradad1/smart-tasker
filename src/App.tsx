@@ -91,7 +91,8 @@ function TaskItem({
   isSelected,
   onSelect,
   allTodos,
-  workspaceMembers
+  workspaceMembers,
+  viewMode
 }: { 
   todo: Todo; 
   onToggle: (id: string) => Promise<void> | void; 
@@ -101,6 +102,7 @@ function TaskItem({
   onSelect: (id: string) => void;
   allTodos: Todo[];
   workspaceMembers: string[];
+  viewMode?: ViewMode;
   key?: string;
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -236,8 +238,8 @@ function TaskItem({
         todo.priority === 'medium' ? 'border-l-amber-500' : 'border-l-emerald-500'
       } ${isSelected ? 'ring-2 ring-indigo-500 shadow-indigo-500/20' : ''} transition-all duration-300`}
     >
-      <div className="flex items-center gap-2 md:gap-5">
-        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+      <div className={`flex ${viewMode === 'board' ? 'flex-col items-start gap-4' : 'flex-row items-center gap-2 md:gap-5'}`}>
+        <div className={`flex items-center gap-2 md:gap-4 shrink-0 ${viewMode === 'board' ? 'w-full justify-between' : ''}`}>
           <motion.button 
             whileHover={{ scale: 1.2 }}
             whileTap={{ scale: 0.9 }}
@@ -260,7 +262,7 @@ function TaskItem({
           </motion.button>
         </div>
         
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 w-full">
           <div className="flex flex-wrap items-center gap-2">
             {isEditing ? (
               <input
@@ -274,7 +276,7 @@ function TaskItem({
             ) : (
               <h4 
                 onClick={() => setIsEditing(true)}
-                className={`text-sm md:text-lg font-black break-words cursor-pointer transition-all ${todo.completed ? 'line-through text-slate-400 opacity-60' : 'text-slate-950 dark:text-white hover:text-primary'}`}
+                className={`text-sm md:text-lg font-black whitespace-pre-wrap break-words cursor-pointer transition-all ${todo.completed ? 'line-through text-slate-400 opacity-60' : 'text-slate-950 dark:text-white hover:text-primary'}`}
               >
                 {todo.title}
               </h4>
@@ -1434,6 +1436,7 @@ function SmartTasker() {
                     onSelect={toggleSelect}
                     allTodos={todos}
                     workspaceMembers={currentWorkspace?.members || []}
+                    viewMode={viewMode}
                   />
                 ))}
               </AnimatePresence>
@@ -1502,6 +1505,7 @@ function SmartTasker() {
                             onSelect={toggleSelect} 
                             allTodos={todos} 
                             workspaceMembers={currentWorkspace?.members || []} 
+                            viewMode={viewMode}
                           />
                         </motion.div>
                       ))}
