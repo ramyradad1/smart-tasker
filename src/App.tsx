@@ -35,7 +35,9 @@ import {
   Sparkles,
   Loader2,
   LayoutList,
-  Columns
+  Columns,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Todo, Priority, Category, Settings, SortOption, FilterOption, Subtask, Workspace, ViewMode, TaskStatus } from './types';
@@ -77,6 +79,8 @@ const generateId = () => {
   }
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
+
+const NOTIFY_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 // --- Task Item Component ---
 function TaskItem({ 
@@ -487,7 +491,8 @@ function SmartTasker() {
     uid: '',
     darkMode: false,
     notificationInterval: 15,
-    notificationsEnabled: false
+    notificationsEnabled: false,
+    soundEnabled: true
   });
 
   const [inputValue, setInputValue] = useState('');
@@ -608,7 +613,8 @@ function SmartTasker() {
           uid: user.uid,
           darkMode: false,
           notificationInterval: 15,
-          notificationsEnabled: false
+          notificationsEnabled: false,
+          soundEnabled: true
         };
         setDoc(doc(db, 'settings', user.uid), initialSettings)
           .catch(err => handleFirestoreError(err, OperationType.WRITE, `settings/${user.uid}`));
@@ -645,9 +651,19 @@ function SmartTasker() {
 
     for (const task of tasksToNotify) {
       new Notification('Task Reminder', {
-        body: `Time for: ${task.title}`,
-        icon: '/favicon.ico'
+        body: `Time to work on: ${task.title}`,
+        icon: '/logo192.png'
       });
+
+      // Play Sound if enabled
+      if (settings.soundEnabled) {
+        try {
+          const audio = new Audio(NOTIFY_SOUND_URL);
+          audio.play().catch(e => console.warn('Audio play failed (interaction required):', e));
+        } catch (e) {
+          console.error('Error playing notification sound:', e);
+        }
+      }
       
       // Mark as sent in Firestore
       try {
@@ -1559,20 +1575,21 @@ function SmartTasker() {
               className="relative w-full max-w-md bg-white dark:bg-slate-900 glass-card rounded-[2.5rem] p-10 shadow-2xl border border-slate-200/50 dark:border-slate-800"
             >
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-                <button title="Close" onClick={() => setIsSettingsOpen(false)} className="p-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors">
-                  <X size={20} />
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Settings</h2>
+                <button title="Close Settings" onClick={() => setIsSettingsOpen(false)} className="p-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors">
+                  <X size={20} className="text-slate-500" />
                 </button>
               </div>
 
-              <div className="space-y-10">
+              <div className="space-y-8">
+                {/* Reminders Toggle */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-2xl ${settings.notificationsEnabled ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20' : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800'}`}>
                       {settings.notificationsEnabled ? <Bell size={24} /> : <BellOff size={24} />}
                     </div>
                     <div>
-                      <p className="font-bold">Reminders</p>
+                      <p className="font-bold text-slate-900 dark:text-white">Reminders</p>
                       <p className="text-xs text-neutral-500">Browser notifications</p>
                     </div>
                   </div>
@@ -1588,14 +1605,44 @@ function SmartTasker() {
                   </button>
                 </div>
 
-                <div className="space-y-4">
+                {/* Sound Toggle */}
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-2xl bg-neutral-100 text-neutral-500 dark:bg-neutral-800">
-                      <Clock size={24} />
+                    <div className={`p-3 rounded-2xl ${settings.soundEnabled ? 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20' : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800'}`}>
+                      {settings.soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white">Sound Effects</p>
+                      <p className="text-xs text-neutral-500">Play sound on notification</p>
+                    </div>
+                  </div>
+                  <button 
+                    title="Toggle Sound"
+                    onClick={() => {
+                      const newSoundState = !settings.soundEnabled;
+                      updateSettings({ soundEnabled: newSoundState });
+                      if (newSoundState) {
+                        new Audio(NOTIFY_SOUND_URL).play().catch(() => {});
+                      }
+                    }}
+                    className={`w-14 h-7 rounded-full transition-all relative ${settings.soundEnabled ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                  >
+                    <motion.div 
+                      animate={{ x: settings.soundEnabled ? 32 : 4 }}
+                      className="absolute top-1 w-5 h-5 rounded-full shadow-sm bg-white"
+                    />
+                  </button>
+                </div>
+
+                {/* Reminder Interval */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 text-slate-900 dark:text-white">
+                    <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+                      <Clock size={24} className="text-neutral-500" />
                     </div>
                     <div>
                       <p className="font-bold">Reminder Interval</p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-300">How often to notify (minutes)</p>
+                      <p className="text-xs text-neutral-500">How often to notify (minutes)</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
@@ -1614,7 +1661,7 @@ function SmartTasker() {
                 <div className="pt-6 border-t border-neutral-100 dark:border-neutral-800">
                   <div className="flex items-start gap-4 text-neutral-500">
                     <AlertCircle size={20} className="mt-0.5 shrink-0" />
-                    <p className="text-xs leading-relaxed dark:text-neutral-300">
+                    <p className="text-xs leading-relaxed dark:text-slate-300">
                       Notifications require browser permission. If they don't appear, check your browser settings for this site.
                     </p>
                   </div>

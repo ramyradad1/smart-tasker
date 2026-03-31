@@ -25,6 +25,8 @@ export interface Todo {
   tags?: string[];
   reminderTime: number | null;
   reminderSent: boolean;
+  recurringInterval?: number | null;
+  lastNotifiedAt?: number | null;
   estimatedMinutes?: number | null;
   completedAt?: number | null;
 }
@@ -42,6 +44,7 @@ export interface Settings {
   darkMode: boolean;
   notificationInterval: number; // in minutes
   notificationsEnabled: boolean;
+  soundEnabled: boolean;
 }
 
 export type SortOption = 'createdAt' | 'dueDate' | 'priority' | 'category';

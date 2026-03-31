@@ -37,7 +37,7 @@ service cloud.firestore {
     // ===============================================================
     function isValidTodo(data) {
       return hasRequiredFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt']) &&
-             hasOnlyAllowedFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt', 'dueDate', 'subtasks', 'dependencies', 'tags', 'status', 'assignees', 'reminderTime', 'reminderSent']) &&
+             hasOnlyAllowedFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt', 'dueDate', 'subtasks', 'dependencies', 'tags', 'status', 'assignees', 'reminderTime', 'reminderSent', 'estimatedMinutes', 'completedAt']) &&
              data.id is string && data.id.size() > 0 &&
              data.uid is string && data.uid == request.auth.uid &&
              data.tenantId is string &&
@@ -53,7 +53,9 @@ service cloud.firestore {
              (!('assignees' in data) || data.assignees is list) &&
              (!('reminderTime' in data) || data.reminderTime is number || data.reminderTime == null) &&
              (!('reminderSent' in data) || data.reminderSent is bool) &&
-             (!('tags' in data) || data.tags is list);
+             (!('tags' in data) || data.tags is list) &&
+             (!('estimatedMinutes' in data) || data.estimatedMinutes is number || data.estimatedMinutes == null) &&
+             (!('completedAt' in data) || data.completedAt is number || data.completedAt == null);
     }
 
     function isValidWorkspace(data) {
@@ -67,12 +69,13 @@ service cloud.firestore {
     }
 
     function isValidSettings(data) {
-      return hasRequiredFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled']) &&
-             hasOnlyAllowedFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled']) &&
+      return hasRequiredFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled', 'soundEnabled']) &&
+             hasOnlyAllowedFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled', 'soundEnabled']) &&
              data.uid is string && data.uid == request.auth.uid &&
              data.darkMode is bool &&
              data.notificationInterval is number && data.notificationInterval > 0 &&
-             data.notificationsEnabled is bool;
+             data.notificationsEnabled is bool &&
+             data.soundEnabled is bool;
     }
 
     // ===============================================================
