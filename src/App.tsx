@@ -236,16 +236,16 @@ function TaskItem({
         todo.priority === 'medium' ? 'border-l-amber-500' : 'border-l-emerald-500'
       } ${isSelected ? 'ring-2 ring-indigo-500 shadow-indigo-500/20' : ''} transition-all duration-300`}
     >
-      <div className="flex items-center gap-5">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-5">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <motion.button 
             whileHover={{ scale: 1.2 }}
             whileTap={{ scale: 0.9 }}
             title={isSelected ? "Deselect" : "Select"}
             onClick={() => onSelect(todo.id)}
-            className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'text-indigo-500 bg-indigo-500/10' : 'text-slate-300 hover:text-slate-400'}`}
+            className={`p-1 rounded-lg transition-colors ${isSelected ? 'text-indigo-500 bg-indigo-500/10' : 'text-slate-300 hover:text-slate-400'}`}
           >
-            {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+            {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
           </motion.button>
           
           <motion.button 
@@ -256,12 +256,12 @@ function TaskItem({
             disabled={!canComplete}
             className={`relative transition-all duration-500 ${!canComplete ? 'opacity-20 cursor-not-allowed' : todo.completed ? 'text-emerald-500 bg-emerald-500/10 rounded-full p-1' : 'text-slate-400 hover:text-indigo-500'}`}
           >
-            {todo.completed ? <CheckCircle2 size={24} className="md:w-[28px] md:h-[28px]" /> : <Circle size={24} className="md:w-[28px] md:h-[28px]" />}
+            {todo.completed ? <CheckCircle2 size={22} className="md:w-[28px] md:h-[28px]" /> : <Circle size={22} className="md:w-[28px] md:h-[28px]" />}
           </motion.button>
         </div>
         
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2">
             {isEditing ? (
               <input
                 type="text"
@@ -274,7 +274,7 @@ function TaskItem({
             ) : (
               <h4 
                 onClick={() => setIsEditing(true)}
-                className={`text-base md:text-lg font-black break-words cursor-pointer transition-all whitespace-pre-wrap ${todo.completed ? 'line-through text-slate-400 opacity-60' : 'text-slate-950 dark:text-white hover:text-primary'}`}
+                className={`text-sm md:text-lg font-black break-words cursor-pointer transition-all ${todo.completed ? 'line-through text-slate-400 opacity-60' : 'text-slate-950 dark:text-white hover:text-primary'}`}
               >
                 {todo.title}
               </h4>
@@ -334,23 +334,23 @@ function TaskItem({
         </div>
 
         {!isEditing && (
-          <div className="flex items-center gap-1.5 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 md:gap-2 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsEditing(true)}
-              className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-colors"
+              className="p-2 md:p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-colors"
             >
-              <Edit2 size={18} />
+              <Edit2 size={16} />
             </motion.button>
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               title="Delete Task"
               onClick={() => onDelete(todo.id)}
-              className="p-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+              className="p-2 md:p-2.5 rounded-xl bg-red-50 dark:bg-red-900/10 text-red-400 hover:bg-red-500 hover:text-white transition-all"
             >
-              <Trash2 size={18} />
+              <Trash2 size={16} />
             </motion.button>
           </div>
         )}
