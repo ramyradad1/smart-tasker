@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isWorkspaceMember(workspaceId) {
+      return isAuthenticated() && 
+             (workspaceId == 'default' || 
+              (workspaceId != null &&
+               get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.members.hasAny([request.auth.uid])));
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidTodo(data) {
+      return hasRequiredFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt', 'dueDate', 'subtasks', 'dependencies', 'tags', 'status', 'assignees', 'reminderTime', 'reminderSent']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.tenantId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 500 &&
+             data.completed is bool &&
+             data.priority in ['low', 'medium', 'high'] &&
+             data.category in ['Work', 'Personal', 'Shopping', 'Urgent', 'General'] &&
+             data.createdAt is number &&
+             (!('dueDate' in data) || data.dueDate is number || data.dueDate == null) &&
+             (!('subtasks' in data) || data.subtasks is list) &&
+             (!('dependencies' in data) || data.dependencies is list) &&
+             (!('status' in data) || data.status in ['todo', 'in-progress', 'done']) &&
+             (!('assignees' in data) || data.assignees is list) &&
+             (!('reminderTime' in data) || data.reminderTime is number || data.reminderTime == null) &&
+             (!('reminderSent' in data) || data.reminderSent is bool) &&
+             (!('tags' in data) || data.tags is list);
+    }
+
+    function isValidWorkspace(data) {
+      return hasRequiredFields(['id', 'name', 'ownerId', 'members', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'name', 'ownerId', 'members', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.ownerId is string && data.ownerId == request.auth.uid &&
+             data.members is list && data.members.size() > 0 &&
+             data.createdAt is number;
+    }
+
+    function isValidSettings(data) {
+      return hasRequiredFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled']) &&
+             hasOnlyAllowedFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.darkMode is bool &&
+             data.notificationInterval is number && data.notificationInterval > 0 &&
+             data.notificationsEnabled is bool;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+    match /todos/{todoId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isWorkspaceMember(request.resource.data.tenantId) && isValidTodo(request.resource.data);
+      allow update: if isAuthenticated() && isWorkspaceMember(resource.data.tenantId) && isValidTodo(request.resource.data) && uidNotModified();
+      allow delete: if isAuthenticated() && isWorkspaceMember(resource.data.tenantId);
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.members;
+      allow create: if isAuthenticated() && isValidWorkspace(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.ownerId && isValidWorkspace(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+    }
+
+    match /settings/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidSettings(request.resource.data);
+      allow update: if isOwner(uid) && isValidSettings(request.resource.data) && uidNotModified();
+      allow delete: if isOwner(uid);
+    }
+  }
+}

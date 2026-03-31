@@ -1,0 +1,5 @@
+{
+  "name": "Upward Smart ToDO",
+  "description": "A minimalist, smart to-do list with multi-tenant workspaces, automatic categorization, and customizable browser notifications.",
+  "requestFramePermissions": ["notifications"]
+}

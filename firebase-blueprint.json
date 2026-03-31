@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Todo": {
+      "title": "Todo",
+      "description": "A single task in the to-do list.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the task." },
+        "uid": { "type": "string", "description": "User ID who created the task." },
+        "tenantId": { "type": "string", "description": "Workspace ID this task belongs to." },
+        "title": { "type": "string", "description": "Title of the task." },
+        "completed": { "type": "boolean", "description": "Whether the task is completed." },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"], "description": "Priority level." },
+        "category": { "type": "string", "enum": ["Work", "Personal", "Shopping", "Urgent", "General"], "description": "Category." },
+        "createdAt": { "type": "number", "description": "Timestamp of creation." },
+        "dueDate": { "type": "number", "description": "Timestamp of the due date (optional)." }
+      },
+      "required": ["id", "uid", "tenantId", "title", "completed", "priority", "category", "createdAt"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "A shared workspace for multiple users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the workspace." },
+        "name": { "type": "string", "description": "Name of the workspace." },
+        "ownerId": { "type": "string", "description": "User ID of the owner." },
+        "members": { "type": "array", "items": { "type": "string" }, "description": "Array of user IDs who are members." },
+        "createdAt": { "type": "number", "description": "Timestamp of creation." }
+      },
+      "required": ["id", "name", "ownerId", "members", "createdAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "User preferences and settings.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID." },
+        "darkMode": { "type": "boolean", "description": "Dark mode preference." },
+        "notificationInterval": { "type": "number", "description": "Interval in minutes." },
+        "notificationsEnabled": { "type": "boolean", "description": "Whether notifications are enabled." }
+      },
+      "required": ["uid", "darkMode", "notificationInterval", "notificationsEnabled"]
+    }
+  },
+  "firestore": {
+    "/todos/{todoId}": {
+      "schema": "Todo",
+      "description": "Collection of tasks."
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": "Workspace",
+      "description": "Collection of workspaces."
+    },
+    "/settings/{uid}": {
+      "schema": "Settings",
+      "description": "User settings document."
+    }
+  }
+}
