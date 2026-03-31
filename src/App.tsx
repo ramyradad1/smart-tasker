@@ -112,6 +112,8 @@ function TaskItem({
   const [editDependencies, setEditDependencies] = useState<string[]>(todo.dependencies || []);
   const [editAssignees, setEditAssignees] = useState<string[]>(todo.assignees || []);
   const [editDuration, setEditDuration] = useState<string>(todo.estimatedMinutes ? todo.estimatedMinutes.toString() : '');
+  const [editDueDate, setEditDueDate] = useState<string>(todo.dueDate ? new Date(todo.dueDate).toISOString().split('T')[0] : '');
+  const [editReminderInterval, setEditReminderInterval] = useState<string>(todo.recurringInterval ? todo.recurringInterval.toString() : '0');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [newTag, setNewTag] = useState('');
@@ -126,6 +128,20 @@ function TaskItem({
   const canComplete = unmetDependencies.length === 0;
 
   const handleSave = () => {
+    const newDueTime = editDueDate ? new Date(editDueDate).getTime() : null;
+    const interval = parseInt(editReminderInterval);
+    let newReminderTime = null;
+    if (interval > 0) {
+      if (newDueTime) {
+        newReminderTime = newDueTime - (interval * 60 * 1000);
+        if (newReminderTime < Date.now()) {
+          newReminderTime = Date.now() + (interval * 60 * 1000);
+        }
+      } else {
+        newReminderTime = Date.now() + (interval * 60 * 1000);
+      }
+    }
+
     onUpdate(todo.id, { 
       title: editTitle, 
       priority: editPriority, 
@@ -134,7 +150,11 @@ function TaskItem({
       tags: editTags,
       dependencies: editDependencies,
       assignees: editAssignees,
-      estimatedMinutes: editDuration ? parseInt(editDuration) : null
+      estimatedMinutes: editDuration ? parseInt(editDuration) : null,
+      dueDate: newDueTime,
+      recurringInterval: interval > 0 ? interval : null,
+      reminderTime: newReminderTime,
+      lastNotifiedAt: null
     });
     setIsEditing(false);
   };
@@ -371,17 +391,44 @@ function TaskItem({
               </select>
             </div>
             
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Duration (minutes)</label>
-              <input 
-                type="number"
-                min="0"
-                title="Estimated Minutes"
-                value={editDuration}
-                onChange={(e) => setEditDuration(e.target.value)}
-                placeholder="e.g. 30"
-                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-2 ring-primary/30 text-slate-950 dark:text-white"
-              />
+            <div className="flex flex-col md:flex-row gap-5">
+              <div className="space-y-2 flex-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Due Date</label>
+                <input 
+                  type="date"
+                  title="Edit Due Date"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-2 ring-primary/30 text-slate-950 dark:text-white"
+                />
+              </div>
+              <div className="space-y-2 flex-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Reminder</label>
+                <select 
+                  title="Edit Reminder Interval"
+                  value={editReminderInterval}
+                  onChange={(e) => setEditReminderInterval(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-2 ring-primary/30 text-slate-950 dark:text-white appearance-none"
+                >
+                  <option value="0">Never</option>
+                  <option value="5">Every 5 mins</option>
+                  <option value="15">Every 15 mins</option>
+                  <option value="30">Every 30 mins</option>
+                  <option value="60">Every 1 hr</option>
+                </select>
+              </div>
+              <div className="space-y-2 flex-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Duration (mins)</label>
+                <input 
+                  type="number"
+                  min="0"
+                  title="Estimated Minutes"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(e.target.value)}
+                  placeholder="e.g. 30"
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-2 ring-primary/30 text-slate-950 dark:text-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -505,7 +552,7 @@ function SmartTasker() {
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastDeletedTodo, setLastDeletedTodo] = useState<Todo | null>(null);
-  const [reminderMinutes, setReminderMinutes] = useState<string>('0');
+  const [reminderInterval, setReminderInterval] = useState<string>('0');
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
@@ -642,12 +689,15 @@ function SmartTasker() {
     if (!settings.notificationsEnabled) return;
     
     const now = Date.now();
-    const tasksToNotify = todos.filter(t => 
-      !t.completed && 
-      t.reminderTime && 
-      !t.reminderSent && 
-      now >= t.reminderTime
-    );
+    const tasksToNotify = todos.filter(t => {
+      if (t.completed || !t.reminderTime) return false;
+      
+      const isPastReminderTime = now >= t.reminderTime;
+      const intervalMs = (t.recurringInterval || settings.notificationInterval || 15) * 60 * 1000;
+      const isDueForRecurring = !t.lastNotifiedAt || (now - t.lastNotifiedAt >= intervalMs);
+
+      return isPastReminderTime && isDueForRecurring;
+    });
 
     for (const task of tasksToNotify) {
       new Notification('Task Reminder', {
@@ -667,9 +717,12 @@ function SmartTasker() {
       
       // Mark as sent in Firestore
       try {
-        await updateDoc(doc(db, 'todos', task.id), { reminderSent: true });
+        await updateDoc(doc(db, 'todos', task.id), { 
+          lastNotifiedAt: now,
+          reminderSent: true 
+        });
       } catch (err) {
-        console.error('Error marking reminder as sent:', err);
+        console.error('Error logging notification reminder:', err);
       }
     }
   };
@@ -694,8 +747,19 @@ function SmartTasker() {
     const id = generateId();
     
     const dueTime = dueDateValue ? new Date(dueDateValue).getTime() : null;
-    const minutes = parseInt(reminderMinutes);
-    const reminderTime = (dueTime && minutes > 0) ? dueTime - (minutes * 60 * 1000) : null;
+    const interval = parseInt(reminderInterval);
+
+    let initialReminderTime = null;
+    if (interval > 0) {
+      if (dueTime) {
+        initialReminderTime = dueTime - (interval * 60 * 1000);
+        if (initialReminderTime < Date.now()) {
+          initialReminderTime = Date.now() + (interval * 60 * 1000);
+        }
+      } else {
+        initialReminderTime = Date.now() + (interval * 60 * 1000);
+      }
+    }
 
     const newTodo: Todo = {
       id,
@@ -707,7 +771,8 @@ function SmartTasker() {
       category,
       createdAt: Date.now(),
       dueDate: dueTime,
-      reminderTime,
+      reminderTime: initialReminderTime,
+      recurringInterval: interval > 0 ? interval : null,
       reminderSent: false,
       estimatedMinutes: durationValue ? parseInt(durationValue) : null
     };
@@ -1187,16 +1252,16 @@ function SmartTasker() {
               <div className="flex items-center gap-3 bg-slate-100/50 dark:bg-slate-800/50 px-4 py-2 rounded-xl text-high-contrast text-sm font-black transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
                 <Bell size={18} className="text-primary" />
                 <select
-                  title="Reminder Time"
-                  value={reminderMinutes}
-                  onChange={(e) => setReminderMinutes(e.target.value)}
-                  className="bg-transparent border-none p-0 text-sm font-black focus:ring-0 cursor-pointer text-slate-800 dark:text-white appearance-none"
+                  title="Reminder Interval"
+                  value={reminderInterval}
+                  onChange={(e) => setReminderInterval(e.target.value)}
+                  className="bg-transparent border-none p-0 text-[10px] md:text-sm font-black focus:ring-0 cursor-pointer text-slate-800 dark:text-white appearance-none uppercase tracking-wider"
                 >
                   <option value="0">Never</option>
-                  <option value="5">5 mins before</option>
-                  <option value="15">15 mins before</option>
-                  <option value="30">30 mins before</option>
-                  <option value="60">1 hour before</option>
+                  <option value="5">Every 5 mins</option>
+                  <option value="15">Every 15 mins</option>
+                  <option value="30">Every 30 mins</option>
+                  <option value="60">Every 1 hr</option>
                 </select>
               </div>
             </div>
