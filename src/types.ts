@@ -25,6 +25,8 @@ export interface Todo {
   tags?: string[];
   reminderTime: number | null;
   reminderSent: boolean;
+  estimatedMinutes?: number | null;
+  completedAt?: number | null;
 }
 
 export interface Workspace {

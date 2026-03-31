@@ -107,6 +107,7 @@ function TaskItem({
   const [editTags, setEditTags] = useState<string[]>(todo.tags || []);
   const [editDependencies, setEditDependencies] = useState<string[]>(todo.dependencies || []);
   const [editAssignees, setEditAssignees] = useState<string[]>(todo.assignees || []);
+  const [editDuration, setEditDuration] = useState<string>(todo.estimatedMinutes ? todo.estimatedMinutes.toString() : '');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [newTag, setNewTag] = useState('');
@@ -128,7 +129,8 @@ function TaskItem({
       subtasks: editSubtasks,
       tags: editTags,
       dependencies: editDependencies,
-      assignees: editAssignees
+      assignees: editAssignees,
+      estimatedMinutes: editDuration ? parseInt(editDuration) : null
     });
     setIsEditing(false);
   };
@@ -281,6 +283,13 @@ function TaskItem({
                   {new Date(todo.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </span>
               )}
+              
+              {todo.estimatedMinutes && (
+                <span className="text-[10px] flex items-center gap-1.5 font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-500">
+                  <Clock size={12} />
+                  {todo.estimatedMinutes >= 60 ? `${(todo.estimatedMinutes / 60).toFixed(1).replace(/\.0$/, '')}h` : `${todo.estimatedMinutes}m`}
+                </span>
+              )}
 
               {/* Progress for subtasks */}
               {todo.subtasks && todo.subtasks.length > 0 && (
@@ -356,6 +365,19 @@ function TaskItem({
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Duration (minutes)</label>
+              <input 
+                type="number"
+                min="0"
+                title="Estimated Minutes"
+                value={editDuration}
+                onChange={(e) => setEditDuration(e.target.value)}
+                placeholder="e.g. 30"
+                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-2 ring-primary/30 text-slate-950 dark:text-white"
+              />
             </div>
           </div>
 
@@ -470,7 +492,9 @@ function SmartTasker() {
 
   const [inputValue, setInputValue] = useState('');
   const [dueDateValue, setDueDateValue] = useState('');
+  const [durationValue, setDurationValue] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [filter, setFilter] = useState<FilterOption>('all');
   const [categoryFilter, setCategoryFilter] = useState<'All' | Category>('All');
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
@@ -668,7 +692,8 @@ function SmartTasker() {
       createdAt: Date.now(),
       dueDate: dueTime,
       reminderTime,
-      reminderSent: false
+      reminderSent: false,
+      estimatedMinutes: durationValue ? parseInt(durationValue) : null
     };
 
     try {
@@ -676,6 +701,7 @@ function SmartTasker() {
       console.log('Task added successfully', id);
       setInputValue('');
       setDueDateValue('');
+      setDurationValue('');
     } catch (err) {
       console.error('Error in handleAddTodo:', err);
       handleFirestoreError(err, OperationType.WRITE, `todos/${id}`);
@@ -686,7 +712,13 @@ function SmartTasker() {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
     try {
-      await updateDoc(doc(db, 'todos', id), { completed: !todo.completed });
+      const updates: Partial<Todo> = { completed: !todo.completed };
+      if (!todo.completed) {
+        updates.completedAt = Date.now();
+      } else {
+        updates.completedAt = null;
+      }
+      await updateDoc(doc(db, 'todos', id), updates);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `todos/${id}`);
     }
@@ -777,7 +809,10 @@ function SmartTasker() {
   const handleBulkComplete = async () => {
     for (const id of selectedIds) {
       try {
-        await updateDoc(doc(db, 'todos', id), { completed: true });
+        await updateDoc(doc(db, 'todos', id), { 
+          completed: true,
+          completedAt: Date.now()
+        });
       } catch (err) {
         console.error('Error bulk completing:', err);
       }
@@ -973,6 +1008,15 @@ function SmartTasker() {
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
+              onClick={() => setIsAnalyticsOpen(true)}
+              className="p-2 md:p-3 rounded-2xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-600/20 hover:text-indigo-600 transition-all shadow-sm"
+              title="Analytics & History"
+            >
+              <BarChart2 size={20} />
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={() => setIsSettingsOpen(true)}
               className="p-2 md:p-3 rounded-2xl bg-slate-200/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 hover:text-primary transition-all shadow-sm"
               title="Settings"
@@ -1108,6 +1152,19 @@ function SmartTasker() {
                   value={dueDateValue}
                   onChange={(e) => setDueDateValue(e.target.value)}
                   className="bg-transparent border-none p-0 text-sm font-black focus:ring-0 cursor-pointer text-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-slate-100/50 dark:bg-slate-800/50 px-4 py-2 rounded-xl text-high-contrast text-sm font-black transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-700/50 w-full md:w-auto">
+                <Clock size={18} className="text-primary" />
+                <input 
+                  type="number" 
+                  min="0"
+                  title="Duration (Minutes)"
+                  placeholder="Duration (mins)"
+                  value={durationValue}
+                  onChange={(e) => setDurationValue(e.target.value)}
+                  className="bg-transparent border-none p-0 text-[10px] md:text-sm uppercase font-black tracking-widest focus:ring-0 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-800 dark:text-white w-28 md:w-32"
                 />
               </div>
 
@@ -1568,8 +1625,108 @@ function SmartTasker() {
         )}
       </AnimatePresence>
 
-      {/* Removed Analytics Modal */}
+      {/* Analytics & History Modal */}
+      <AnimatePresence>
+        {isAnalyticsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAnalyticsOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-slate-900 glass-card rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-black tracking-tight flex items-center gap-3 text-slate-900 dark:text-white">
+                  <BarChart2 className="text-indigo-500" size={28} />
+                  This Month's Progress
+                </h2>
+                <button title="Close" onClick={() => setIsAnalyticsOpen(false)} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-500 dark:text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
 
+              {(() => {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                
+                const currentMonthCompleted = todos.filter(t => 
+                  t.tenantId === (currentWorkspace?.id || 'default') && 
+                  t.completed && 
+                  t.completedAt && 
+                  t.completedAt >= startOfMonth
+                ).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+                const totalMinutes = currentMonthCompleted.reduce((acc, t) => acc + (t.estimatedMinutes || 0), 0);
+                const totalHours = Math.floor(totalMinutes / 60);
+                const remainingMinutes = totalMinutes % 60;
+
+                return (
+                  <div className="space-y-8">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-500/20">
+                        <div className="flex items-center gap-2 text-indigo-500 mb-2">
+                          <CheckCircle2 size={18} />
+                          <h3 className="text-xs font-black uppercase tracking-widest">Tasks Done</h3>
+                        </div>
+                        <p className="text-4xl font-black text-slate-900 dark:text-white">
+                          {currentMonthCompleted.length}
+                        </p>
+                      </div>
+
+                      <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-500/20">
+                        <div className="flex items-center gap-2 text-emerald-500 mb-2">
+                          <Clock size={18} />
+                          <h3 className="text-xs font-black uppercase tracking-widest">Time Spent</h3>
+                        </div>
+                        <p className="text-4xl font-black text-slate-900 dark:text-white">
+                          {totalHours > 0 ? `${totalHours}h ` : ''}{remainingMinutes}m
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Task List */}
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 px-1">Completed History</h3>
+                      {currentMonthCompleted.length > 0 ? (
+                        <div className="space-y-3">
+                          {currentMonthCompleted.map(todo => (
+                            <div key={todo.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 text-sm">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{todo.title}</span>
+                                <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
+                                  {new Date(todo.completedAt!).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {todo.estimatedMinutes && (
+                                <span className="text-xs font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-xl whitespace-nowrap">
+                                  {todo.estimatedMinutes} mins
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-10 px-4 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                          <Sparkles size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                          <p className="text-slate-500 dark:text-slate-400 font-medium">No tasks completed this month yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       {/* Undo Toast */}
       <AnimatePresence>
         {showUndoToast && (
