@@ -37,7 +37,7 @@ service cloud.firestore {
     // ===============================================================
     function isValidTodo(data) {
       return hasRequiredFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt']) &&
-             hasOnlyAllowedFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt', 'dueDate', 'subtasks', 'dependencies', 'tags', 'status', 'assignees', 'reminderTime', 'reminderSent', 'estimatedMinutes', 'completedAt']) &&
+             hasOnlyAllowedFields(['id', 'uid', 'tenantId', 'title', 'completed', 'priority', 'category', 'createdAt', 'dueDate', 'subtasks', 'dependencies', 'tags', 'status', 'assignees', 'reminderTime', 'reminderSent', 'estimatedMinutes', 'completedAt', 'recurringInterval', 'lastNotifiedAt']) &&
              data.id is string && data.id.size() > 0 &&
              data.uid is string && data.uid == request.auth.uid &&
              data.tenantId is string &&
@@ -55,7 +55,9 @@ service cloud.firestore {
              (!('reminderSent' in data) || data.reminderSent is bool) &&
              (!('tags' in data) || data.tags is list) &&
              (!('estimatedMinutes' in data) || data.estimatedMinutes is number || data.estimatedMinutes == null) &&
-             (!('completedAt' in data) || data.completedAt is number || data.completedAt == null);
+             (!('completedAt' in data) || data.completedAt is number || data.completedAt == null) &&
+             (!('recurringInterval' in data) || data.recurringInterval is number || data.recurringInterval == null) &&
+             (!('lastNotifiedAt' in data) || data.lastNotifiedAt is number || data.lastNotifiedAt == null);
     }
 
     function isValidWorkspace(data) {
@@ -69,13 +71,13 @@ service cloud.firestore {
     }
 
     function isValidSettings(data) {
-      return hasRequiredFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled', 'soundEnabled']) &&
+      return hasRequiredFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled']) &&
              hasOnlyAllowedFields(['uid', 'darkMode', 'notificationInterval', 'notificationsEnabled', 'soundEnabled']) &&
              data.uid is string && data.uid == request.auth.uid &&
              data.darkMode is bool &&
              data.notificationInterval is number && data.notificationInterval > 0 &&
              data.notificationsEnabled is bool &&
-             data.soundEnabled is bool;
+             (!('soundEnabled' in data) || data.soundEnabled is bool);
     }
 
     // ===============================================================
